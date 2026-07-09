@@ -10,6 +10,8 @@ account or API keys, it uses public Yahoo Finance data.
 > Educational only. Past performance does not predict future results, and this
 > is not financial advice.
 
+![Hindsight comparing VOO, QQQM and AMZN under an SMA crossover strategy](assets/hero.png)
+
 ## Strategies
 
 | Name | Family | Logic |

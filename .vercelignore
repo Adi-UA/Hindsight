@@ -4,3 +4,4 @@ backend/tests
 **/__pycache__
 *.pyc
 frontend/node_modules
+assets
