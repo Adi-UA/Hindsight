@@ -1,10 +1,8 @@
-"""Headless backtesting that returns data instead of opening a plot window.
+"""Headless backtesting that returns data for charting (no plot window).
 
-The original ``backtest`` opened a matplotlib window via ``cerebro.plot()``,
-which is useless in a web app. :func:`run_backtest` instead runs a strategy over
-historical daily bars with backtrader and returns a JSON-friendly result:
-summary metrics plus per-bar series (close price and portfolio equity) and
-buy/sell markers, so a frontend can draw an interactive chart.
+Fetches historical daily bars once and runs one or more strategies over the
+same data with backtrader, returning JSON-friendly metrics plus per-bar series
+(close price and portfolio equity) so a frontend can draw and compare them.
 """
 
 from __future__ import annotations
@@ -16,7 +14,11 @@ import backtrader as bt
 import pandas as pd
 import yfinance as yf
 
+from pricecache import PriceCache, RateLimitError
 from strategy import STRATEGIES, Signal, Strategy, get_strategy
+
+# Per-process cache + fetch limiter shared across requests.
+_PRICE_CACHE = PriceCache()
 
 
 class _StrategyBridge(bt.Strategy):
@@ -43,7 +45,6 @@ class _StrategyBridge(bt.Strategy):
             (current_date.isoformat(), price, float(self.broker.getvalue()))
         )
 
-        # Respect the same trade cadence the live bot uses.
         if (
             self._last_trade_date is not None
             and (current_date - self._last_trade_date).days < self.p.interval_days
@@ -70,7 +71,7 @@ class _StrategyBridge(bt.Strategy):
 
 
 def _feed_from_df(df: pd.DataFrame) -> bt.feeds.PandasData:
-    """Build a backtrader data feed from an OHLCV DataFrame (datetime index)."""
+    """Build a backtrader feed from an OHLCV DataFrame (datetime index)."""
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     return bt.feeds.PandasData(
@@ -84,11 +85,25 @@ def _feed_from_df(df: pd.DataFrame) -> bt.feeds.PandasData:
     )
 
 
-def _load_yf_feed(symbol: str, start: str, end: str) -> bt.feeds.PandasData:
+def _load_yf_df(symbol: str, start: str, end: str) -> pd.DataFrame:
+    """Download OHLCV data for a symbol; raise if none is available.
+
+    Results are cached per-process; cache misses are rate limited to avoid
+    hammering Yahoo Finance.
+    """
+    key = _PRICE_CACHE.key(symbol, start, end)
+    cached = _PRICE_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    if not _PRICE_CACHE.allow_fetch():
+        raise RateLimitError("Too many data requests right now. Please try again shortly.")
+
     df = yf.download(symbol, start=start, end=end, progress=False, auto_adjust=True)
     if df is None or df.empty:
         raise ValueError(f"No price data for {symbol} between {start} and {end}")
-    return _feed_from_df(df)
+    _PRICE_CACHE.put(key, df)
+    return df
 
 
 def _max_drawdown_pct(equities: list[float]) -> float:
@@ -105,22 +120,15 @@ def _to_iso(value: str | datetime) -> str:
     return value.date().isoformat() if isinstance(value, datetime) else str(value)
 
 
-def run_backtest(
+def _run_one(
     strategy: Strategy,
-    symbol: str,
-    start: str | datetime,
-    end: str | datetime,
-    cash: float = 10_000.0,
+    feed: bt.feeds.PandasData,
+    cash: float,
     buy_fraction: float = 0.75,
     sell_fraction: float = 0.10,
     interval_days: int = 2,
-    data: bt.feeds.PandasData | None = None,
 ) -> dict[str, Any]:
-    """Run ``strategy`` over historical data and return metrics + chart series.
-
-    Pass ``data`` to supply a prebuilt feed (used by tests); otherwise data is
-    downloaded from Yahoo Finance for ``symbol`` between ``start`` and ``end``.
-    """
+    """Run a single strategy over a prepared feed and return its result."""
     cerebro = bt.Cerebro()
     lookback = max(strategy.min_bars, 60)
     cerebro.addstrategy(
@@ -132,7 +140,6 @@ def run_backtest(
         lookback=lookback,
     )
     cerebro.broker.set_cash(cash)
-    feed = data if data is not None else _load_yf_feed(symbol, str(start), str(end))
     cerebro.adddata(feed)
 
     result = cerebro.run()[0]
@@ -140,11 +147,7 @@ def run_backtest(
     equities = [equity for _, _, equity in result.equity_curve]
 
     return {
-        "symbol": symbol,
         "strategy": strategy.name,
-        "start": _to_iso(start),
-        "end": _to_iso(end),
-        "initial_cash": round(cash, 2),
         "final_value": round(final_value, 2),
         "return_pct": round((final_value / cash - 1) * 100, 2) if cash else 0.0,
         "num_trades": len(result.markers),
@@ -156,29 +159,86 @@ def run_backtest(
     }
 
 
+def run_backtest(
+    strategy: Strategy,
+    symbol: str,
+    start: str | datetime,
+    end: str | datetime,
+    cash: float = 10_000.0,
+    buy_fraction: float = 0.75,
+    sell_fraction: float = 0.10,
+    interval_days: int = 2,
+    data: bt.feeds.PandasData | None = None,
+) -> dict[str, Any]:
+    """Run one strategy and return its metrics + series (with symbol/date meta)."""
+    feed = data if data is not None else _feed_from_df(_load_yf_df(symbol, str(start), str(end)))
+    result = _run_one(strategy, feed, cash, buy_fraction, sell_fraction, interval_days)
+    return {
+        "symbol": symbol,
+        "start": _to_iso(start),
+        "end": _to_iso(end),
+        "initial_cash": round(cash, 2),
+        **result,
+    }
+
+
+def run_comparison(
+    strategies: list[Strategy],
+    symbol: str,
+    start: str | datetime,
+    end: str | datetime,
+    cash: float = 10_000.0,
+    buy_fraction: float = 0.75,
+    sell_fraction: float = 0.10,
+    interval_days: int = 2,
+    df: pd.DataFrame | None = None,
+) -> dict[str, Any]:
+    """Run several strategies over the SAME data (fetched once) and compare them."""
+    frame = df if df is not None else _load_yf_df(symbol, str(start), str(end))
+    results = [
+        _run_one(s, _feed_from_df(frame.copy()), cash, buy_fraction, sell_fraction, interval_days)
+        for s in strategies
+    ]
+    return {
+        "symbol": symbol,
+        "start": _to_iso(start),
+        "end": _to_iso(end),
+        "initial_cash": round(cash, 2),
+        "results": results,
+    }
+
+
 def main() -> None:
     import argparse
     import json
 
     parser = argparse.ArgumentParser(
-        description="Backtest a SimpleTrader strategy on historical data."
+        description="Backtest one or more SimpleTrader strategies on historical data."
     )
     parser.add_argument("--symbol", required=True, help="Ticker symbol, e.g. VOO")
     parser.add_argument("--start", required=True, help="Start date YYYY-MM-DD")
     parser.add_argument("--end", required=True, help="End date YYYY-MM-DD")
     parser.add_argument(
-        "--strategy",
+        "--strategies",
         default="sma_crossover",
-        choices=list(STRATEGIES),
-        help="Strategy to backtest",
+        help=f"Comma-separated strategies from: {', '.join(STRATEGIES)}",
     )
     parser.add_argument("--cash", type=float, default=10_000.0, help="Starting cash")
     args = parser.parse_args()
 
-    result = run_backtest(
-        get_strategy(args.strategy), args.symbol, args.start, args.end, cash=args.cash
-    )
-    summary = {k: v for k, v in result.items() if k not in ("series", "markers")}
+    names = [n.strip() for n in args.strategies.split(",") if n.strip()]
+    strategies = [get_strategy(n) for n in names]
+    result = run_comparison(strategies, args.symbol, args.start, args.end, cash=args.cash)
+    summary = {
+        "symbol": result["symbol"],
+        "start": result["start"],
+        "end": result["end"],
+        "initial_cash": result["initial_cash"],
+        "results": [
+            {k: v for k, v in r.items() if k not in ("series", "markers")}
+            for r in result["results"]
+        ],
+    }
     print(json.dumps(summary, indent=2))
 
 

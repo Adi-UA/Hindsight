@@ -1,36 +1,8 @@
-// Typed client for the SimpleTrader backend API.
+// Typed client for the SimpleTrader backtest API.
 
 export interface StrategyInfo {
   name: string;
   description: string;
-}
-
-export interface Account {
-  cash: number;
-  portfolio_value: number;
-  position_qty: number;
-  position_value: number;
-}
-
-export interface Status {
-  running: boolean;
-  strategy: string;
-  symbol: string;
-  paper: boolean;
-  quick_test: boolean;
-  next_run_at: string | null;
-  last_run_at: string | null;
-  account: Account | null;
-}
-
-export interface Decision {
-  timestamp: string;
-  symbol: string;
-  strategy: string;
-  signal: string;
-  action: string;
-  amount: number | null;
-  status: string;
 }
 
 export interface SeriesPoint {
@@ -45,12 +17,8 @@ export interface Marker {
   price: number;
 }
 
-export interface BacktestResult {
-  symbol: string;
+export interface StrategyResult {
   strategy: string;
-  start: string;
-  end: string;
-  initial_cash: number;
   final_value: number;
   return_pct: number;
   num_trades: number;
@@ -59,15 +27,16 @@ export interface BacktestResult {
   markers: Marker[];
 }
 
-export interface StartRequest {
-  strategy?: string;
-  symbol?: string;
-  paper?: boolean;
-  quick_test?: boolean;
+export interface ComparisonResult {
+  symbol: string;
+  start: string;
+  end: string;
+  initial_cash: number;
+  results: StrategyResult[];
 }
 
 export interface BacktestRequest {
-  strategy: string;
+  strategies: string[];
   symbol: string;
   start: string;
   end: string;
@@ -95,20 +64,9 @@ async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const getStrategies = () => jsonFetch<StrategyInfo[]>("/api/strategies");
-export const getStatus = () => jsonFetch<Status>("/api/status");
-export const getHistory = () => jsonFetch<Decision[]>("/api/history");
-
-export const startTrader = (body: StartRequest) =>
-  jsonFetch<Status>("/api/trader/start", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-
-export const stopTrader = () =>
-  jsonFetch<Status>("/api/trader/stop", { method: "POST" });
 
 export const runBacktest = (body: BacktestRequest) =>
-  jsonFetch<BacktestResult>("/api/backtest", {
+  jsonFetch<ComparisonResult>("/api/backtest", {
     method: "POST",
     body: JSON.stringify(body),
   });

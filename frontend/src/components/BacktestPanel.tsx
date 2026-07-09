@@ -8,35 +8,32 @@ import {
   Heading,
   Input,
   SimpleGrid,
-  Stat,
-  StatHelpText,
-  StatLabel,
-  StatNumber,
+  Table,
+  TableContainer,
+  Tbody,
+  Td,
   Text,
+  Th,
+  Thead,
+  Tr,
   VStack,
 } from "@chakra-ui/react";
 import { useState } from "react";
 
-import type { BacktestRequest, BacktestResult, StrategyInfo } from "../api";
-import { EquityChart } from "./EquityChart";
-import { StrategyPicker } from "./StrategyPicker";
+import type { BacktestRequest, ComparisonResult, StrategyInfo } from "../api";
+import { ComparisonChart } from "./ComparisonChart";
+import { StrategySelect } from "./StrategySelect";
 
 interface Props {
   strategies: StrategyInfo[];
   onRun: (req: BacktestRequest) => void;
-  result?: BacktestResult;
+  result?: ComparisonResult;
   isRunning?: boolean;
   error?: string;
 }
 
-export function BacktestPanel({
-  strategies,
-  onRun,
-  result,
-  isRunning,
-  error,
-}: Props) {
-  const [strategy, setStrategy] = useState("sma_crossover");
+export function BacktestPanel({ strategies, onRun, result, isRunning, error }: Props) {
+  const [selected, setSelected] = useState<string[]>(["sma_crossover"]);
   const [symbol, setSymbol] = useState("VOO");
   const [start, setStart] = useState("2020-01-01");
   const [end, setEnd] = useState("2024-01-01");
@@ -51,108 +48,105 @@ export function BacktestPanel({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            onRun({ strategy, symbol, start, end, cash });
+            onRun({ strategies: selected, symbol, start, end, cash });
           }}
         >
-        <VStack align="stretch" spacing={4}>
-          <StrategyPicker
-            strategies={strategies}
-            value={strategy}
-            onChange={setStrategy}
-          />
-          <SimpleGrid columns={2} spacing={3}>
-            <FormControl>
-              <FormLabel fontSize="sm" color="gray.400">
-                Symbol
-              </FormLabel>
-              <Input
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                bg="gray.900"
-              />
-            </FormControl>
-            <FormControl>
-              <FormLabel fontSize="sm" color="gray.400">
-                Starting cash
-              </FormLabel>
-              <Input
-                type="number"
-                value={cash}
-                onChange={(e) => setCash(Number(e.target.value))}
-                bg="gray.900"
-              />
-            </FormControl>
-            <FormControl>
-              <FormLabel fontSize="sm" color="gray.400">
-                Start
-              </FormLabel>
-              <Input
-                type="date"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-                bg="gray.900"
-              />
-            </FormControl>
-            <FormControl>
-              <FormLabel fontSize="sm" color="gray.400">
-                End
-              </FormLabel>
-              <Input
-                type="date"
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-                bg="gray.900"
-              />
-            </FormControl>
-          </SimpleGrid>
-          <Button
-            type="submit"
-            colorScheme="blue"
-            size="lg"
-            w="full"
-            isLoading={isRunning}
-            loadingText="Running"
-          >
-            Run backtest
-          </Button>
-          {error && (
-            <Text color="red.300" fontSize="sm">
-              {error}
-            </Text>
-          )}
+          <VStack align="stretch" spacing={4}>
+            <StrategySelect strategies={strategies} value={selected} onChange={setSelected} />
+            <SimpleGrid columns={2} spacing={3}>
+              <FormControl>
+                <FormLabel fontSize="sm" color="gray.400">
+                  Symbol
+                </FormLabel>
+                <Input
+                  value={symbol}
+                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                  bg="gray.900"
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="sm" color="gray.400">
+                  Starting cash
+                </FormLabel>
+                <Input
+                  type="number"
+                  value={cash}
+                  onChange={(e) => setCash(Number(e.target.value))}
+                  bg="gray.900"
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="sm" color="gray.400">
+                  Start
+                </FormLabel>
+                <Input
+                  type="date"
+                  value={start}
+                  onChange={(e) => setStart(e.target.value)}
+                  bg="gray.900"
+                />
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="sm" color="gray.400">
+                  End
+                </FormLabel>
+                <Input
+                  type="date"
+                  value={end}
+                  onChange={(e) => setEnd(e.target.value)}
+                  bg="gray.900"
+                />
+              </FormControl>
+            </SimpleGrid>
+            <Button
+              type="submit"
+              colorScheme="blue"
+              size="lg"
+              w="full"
+              isLoading={isRunning}
+              loadingText="Running"
+              isDisabled={selected.length === 0}
+            >
+              Run backtest
+            </Button>
+            {error && (
+              <Text color="red.300" fontSize="sm">
+                {error}
+              </Text>
+            )}
 
-          {result && (
-            <>
-              <SimpleGrid columns={{ base: 2, md: 4 }} spacing={3}>
-                <Stat>
-                  <StatLabel color="gray.500">Final value</StatLabel>
-                  <StatNumber fontSize="lg">
-                    ${result.final_value.toLocaleString()}
-                  </StatNumber>
-                </Stat>
-                <Stat>
-                  <StatLabel color="gray.500">Return</StatLabel>
-                  <StatNumber
-                    fontSize="lg"
-                    color={result.return_pct >= 0 ? "green.300" : "red.300"}
-                  >
-                    {result.return_pct}%
-                  </StatNumber>
-                </Stat>
-                <Stat>
-                  <StatLabel color="gray.500">Trades</StatLabel>
-                  <StatNumber fontSize="lg">{result.num_trades}</StatNumber>
-                </Stat>
-                <Stat>
-                  <StatLabel color="gray.500">Max drawdown</StatLabel>
-                  <StatNumber fontSize="lg">{result.max_drawdown_pct}%</StatNumber>
-                  <StatHelpText>{result.strategy}</StatHelpText>
-                </Stat>
-              </SimpleGrid>
-              <EquityChart series={result.series} markers={result.markers} />
-            </>
-          )}
-        </VStack>
+            {result && (
+              <>
+                <TableContainer>
+                  <Table size="sm" variant="simple">
+                    <Thead>
+                      <Tr>
+                        <Th>Strategy</Th>
+                        <Th isNumeric>Final value</Th>
+                        <Th isNumeric>Return</Th>
+                        <Th isNumeric>Trades</Th>
+                        <Th isNumeric>Max DD</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {result.results.map((r) => (
+                        <Tr key={r.strategy}>
+                          <Td>{r.strategy}</Td>
+                          <Td isNumeric>${r.final_value.toLocaleString()}</Td>
+                          <Td isNumeric color={r.return_pct >= 0 ? "green.300" : "red.300"}>
+                            {r.return_pct}%
+                          </Td>
+                          <Td isNumeric>{r.num_trades}</Td>
+                          <Td isNumeric>{r.max_drawdown_pct}%</Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+                </TableContainer>
+                <ComparisonChart results={result.results} />
+              </>
+            )}
+          </VStack>
         </form>
       </CardBody>
     </Card>
