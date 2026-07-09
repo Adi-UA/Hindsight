@@ -40,6 +40,15 @@ def test_buy_and_hold_produces_trades_and_series():
     assert {"return_pct", "max_drawdown_pct", "markers", "series"} <= set(result)
 
 
+def test_buy_and_hold_trades_once_and_tracks_price():
+    prices = np.linspace(100, 200, 120)  # steadily doubling
+    result = run_backtest(
+        BuyAndHold(), "TEST", "2021-01-01", "2021-06-30", cash=10_000, data=_synthetic_feed(prices)
+    )
+    assert result["num_trades"] == 1  # true buy-and-hold: one entry, then hold
+    assert result["return_pct"] > 50  # ~fully invested while the stock doubled
+
+
 def test_sma_backtest_runs_and_reports_metadata():
     prices = list(np.linspace(200, 100, 60)) + list(np.linspace(100, 200, 60))
     result = run_backtest(

@@ -20,6 +20,10 @@ from strategy import STRATEGIES, Signal, Strategy, get_strategy
 # Per-process cache + fetch limiter shared across requests.
 _PRICE_CACHE = PriceCache()
 
+# Full-invest benchmarks deploy nearly all cash at once; leave a small buffer
+# so the order still fills if the next open ticks up.
+_FULL_INVEST_FRACTION = 0.99
+
 
 class _StrategyBridge(bt.Strategy):
     """Adapts a SimpleTrader :class:`Strategy` to a backtrader strategy."""
@@ -58,11 +62,20 @@ class _StrategyBridge(bt.Strategy):
 
         signal = strategy.decide(closes)
         if signal is Signal.BUY:
-            size = self.broker.get_cash() * self.p.buy_fraction / price
-            if size > 0:
-                self.buy(size=size)
+            if strategy.full_invest:
+                # Buy & hold: target a fixed share of the portfolio once, then
+                # hold. order_target_percent sizes correctly at execution.
+                if self.position.size > 0:
+                    return
+                self.order_target_percent(target=_FULL_INVEST_FRACTION)
                 self.markers.append((current_date.isoformat(), "BUY", price))
                 self._last_trade_date = current_date
+            else:
+                size = self.broker.get_cash() * self.p.buy_fraction / price
+                if size > 0:
+                    self.buy(size=size)
+                    self.markers.append((current_date.isoformat(), "BUY", price))
+                    self._last_trade_date = current_date
         elif signal is Signal.SELL and self.position.size > 0:
             size = self.position.size * self.p.sell_fraction
             self.sell(size=size)
@@ -130,7 +143,9 @@ def _run_one(
 ) -> dict[str, Any]:
     """Run a single strategy over a prepared feed and return its result."""
     cerebro = bt.Cerebro()
-    lookback = max(strategy.min_bars, 60)
+    # Only wait for as much history as the strategy actually needs, so it starts
+    # as early as it validly can (buy & hold enters almost immediately).
+    lookback = strategy.min_bars
     cerebro.addstrategy(
         _StrategyBridge,
         strategy_obj=strategy,

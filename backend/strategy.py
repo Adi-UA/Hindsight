@@ -105,6 +105,9 @@ class Strategy(ABC):
     name: str = "base"
     #: Human-readable description shown in the UI.
     description: str = ""
+    #: When True, invest (nearly) all cash on a BUY and then hold, so benchmark
+    #: strategies are not repeatedly scaled in. Active strategies leave this False.
+    full_invest: bool = False
 
     @property
     @abstractmethod
@@ -248,7 +251,9 @@ class BuyAndHold(Strategy):
     """
 
     name = "buy_and_hold"
-    description = "Baseline benchmark. Always buys and holds the position."
+    description = "Baseline benchmark. Invests once and holds for the whole period."
+
+    full_invest = True
 
     @property
     def min_bars(self) -> int:
