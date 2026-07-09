@@ -48,6 +48,12 @@ export function BacktestPanel({
         <Heading size="md">Backtest</Heading>
       </CardHeader>
       <CardBody pt={0}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onRun({ strategy, symbol, start, end, cash });
+          }}
+        >
         <VStack align="stretch" spacing={4}>
           <StrategyPicker
             strategies={strategies}
@@ -100,8 +106,8 @@ export function BacktestPanel({
             </FormControl>
           </SimpleGrid>
           <Button
+            type="submit"
             colorScheme="brand"
-            onClick={() => onRun({ strategy, symbol, start, end, cash })}
             isLoading={isRunning}
             loadingText="Running"
           >
@@ -145,6 +151,7 @@ export function BacktestPanel({
             </>
           )}
         </VStack>
+        </form>
       </CardBody>
     </Card>
   );
