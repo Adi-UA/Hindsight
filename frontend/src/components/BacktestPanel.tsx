@@ -18,7 +18,7 @@ import {
   Tr,
   VStack,
 } from "@chakra-ui/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { BacktestRequest, ComparisonResult, StrategyInfo } from "../api";
 import { ComparisonChart } from "./ComparisonChart";
@@ -26,6 +26,12 @@ import { StrategyPicker } from "./StrategyPicker";
 import { SymbolsInput } from "./SymbolsInput";
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+const twoYearsAgo = () => {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 2);
+  return d.toISOString().slice(0, 10);
+};
 
 interface Props {
   strategies: StrategyInfo[];
@@ -37,10 +43,17 @@ interface Props {
 
 export function BacktestPanel({ strategies, onRun, result, isRunning, error }: Props) {
   const [strategy, setStrategy] = useState("sma_crossover");
-  const [symbols, setSymbols] = useState<string[]>(["VOO"]);
-  const [start, setStart] = useState("2020-01-01");
+  const [symbols, setSymbols] = useState<string[]>(["VOO", "QQQM", "AMZN"]);
+  const [start, setStart] = useState(twoYearsAgo());
   const [end, setEnd] = useState(today());
   const [cash, setCash] = useState(10000);
+
+  // Populate the landing page with a default comparison on first load.
+  useEffect(() => {
+    onRun({ strategy, symbols, start, end, cash });
+    // Intentionally run only once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Card>

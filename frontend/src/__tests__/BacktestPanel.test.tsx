@@ -10,13 +10,20 @@ const strategies = [
 ];
 
 describe("BacktestPanel", () => {
-  test("runs the backtest with the strategy and symbols on submit", () => {
+  test("runs the default comparison on mount", () => {
     const onRun = vi.fn();
     renderWithChakra(<BacktestPanel strategies={strategies} onRun={onRun} />);
-    fireEvent.click(screen.getByRole("button", { name: /run backtest/i }));
     expect(onRun).toHaveBeenCalledWith(
-      expect.objectContaining({ strategy: "sma_crossover", symbols: ["VOO"] }),
+      expect.objectContaining({ strategy: "sma_crossover", symbols: ["VOO", "QQQM", "AMZN"] }),
     );
+  });
+
+  test("re-runs the backtest on submit", () => {
+    const onRun = vi.fn();
+    renderWithChakra(<BacktestPanel strategies={strategies} onRun={onRun} />);
+    onRun.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: /run backtest/i }));
+    expect(onRun).toHaveBeenCalledTimes(1);
   });
 
   test("shows an error message when one is provided", () => {
