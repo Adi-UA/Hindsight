@@ -1,0 +1,186 @@
+"""Headless backtesting that returns data instead of opening a plot window.
+
+The original ``backtest`` opened a matplotlib window via ``cerebro.plot()``,
+which is useless in a web app. :func:`run_backtest` instead runs a strategy over
+historical daily bars with backtrader and returns a JSON-friendly result:
+summary metrics plus per-bar series (close price and portfolio equity) and
+buy/sell markers, so a frontend can draw an interactive chart.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any
+
+import backtrader as bt
+import pandas as pd
+import yfinance as yf
+
+from strategy import STRATEGIES, Signal, Strategy, get_strategy
+
+
+class _StrategyBridge(bt.Strategy):
+    """Adapts a SimpleTrader :class:`Strategy` to a backtrader strategy."""
+
+    params = dict(  # noqa: RUF012 - backtrader reads params from a dict/tuple
+        strategy_obj=None,
+        buy_fraction=0.75,
+        sell_fraction=0.10,
+        interval_days=2,
+        lookback=60,
+    )
+
+    def __init__(self) -> None:
+        self.dataclose = self.datas[0].close
+        self.equity_curve: list[tuple[str, float, float]] = []
+        self.markers: list[tuple[str, str, float]] = []
+        self._last_trade_date = None
+
+    def next(self) -> None:
+        current_date = self.datas[0].datetime.date(0)
+        price = float(self.dataclose[0])
+        self.equity_curve.append(
+            (current_date.isoformat(), price, float(self.broker.getvalue()))
+        )
+
+        # Respect the same trade cadence the live bot uses.
+        if (
+            self._last_trade_date is not None
+            and (current_date - self._last_trade_date).days < self.p.interval_days
+        ):
+            return
+
+        strategy: Strategy = self.p.strategy_obj
+        closes = list(self.dataclose.get(size=self.p.lookback))
+        if len(closes) < strategy.min_bars:
+            return
+
+        signal = strategy.decide(closes)
+        if signal is Signal.BUY:
+            size = self.broker.get_cash() * self.p.buy_fraction / price
+            if size > 0:
+                self.buy(size=size)
+                self.markers.append((current_date.isoformat(), "BUY", price))
+                self._last_trade_date = current_date
+        elif signal is Signal.SELL and self.position.size > 0:
+            size = self.position.size * self.p.sell_fraction
+            self.sell(size=size)
+            self.markers.append((current_date.isoformat(), "SELL", price))
+            self._last_trade_date = current_date
+
+
+def _feed_from_df(df: pd.DataFrame) -> bt.feeds.PandasData:
+    """Build a backtrader data feed from an OHLCV DataFrame (datetime index)."""
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+    return bt.feeds.PandasData(
+        dataname=df,
+        open="Open",
+        high="High",
+        low="Low",
+        close="Close",
+        volume="Volume",
+        openinterest=None,
+    )
+
+
+def _load_yf_feed(symbol: str, start: str, end: str) -> bt.feeds.PandasData:
+    df = yf.download(symbol, start=start, end=end, progress=False, auto_adjust=True)
+    if df is None or df.empty:
+        raise ValueError(f"No price data for {symbol} between {start} and {end}")
+    return _feed_from_df(df)
+
+
+def _max_drawdown_pct(equities: list[float]) -> float:
+    peak = float("-inf")
+    max_dd = 0.0
+    for value in equities:
+        peak = max(peak, value)
+        if peak > 0:
+            max_dd = max(max_dd, (peak - value) / peak)
+    return round(max_dd * 100, 2)
+
+
+def _to_iso(value: str | datetime) -> str:
+    return value.date().isoformat() if isinstance(value, datetime) else str(value)
+
+
+def run_backtest(
+    strategy: Strategy,
+    symbol: str,
+    start: str | datetime,
+    end: str | datetime,
+    cash: float = 10_000.0,
+    buy_fraction: float = 0.75,
+    sell_fraction: float = 0.10,
+    interval_days: int = 2,
+    data: bt.feeds.PandasData | None = None,
+) -> dict[str, Any]:
+    """Run ``strategy`` over historical data and return metrics + chart series.
+
+    Pass ``data`` to supply a prebuilt feed (used by tests); otherwise data is
+    downloaded from Yahoo Finance for ``symbol`` between ``start`` and ``end``.
+    """
+    cerebro = bt.Cerebro()
+    lookback = max(strategy.min_bars, 60)
+    cerebro.addstrategy(
+        _StrategyBridge,
+        strategy_obj=strategy,
+        buy_fraction=buy_fraction,
+        sell_fraction=sell_fraction,
+        interval_days=interval_days,
+        lookback=lookback,
+    )
+    cerebro.broker.set_cash(cash)
+    feed = data if data is not None else _load_yf_feed(symbol, str(start), str(end))
+    cerebro.adddata(feed)
+
+    result = cerebro.run()[0]
+    final_value = float(cerebro.broker.getvalue())
+    equities = [equity for _, _, equity in result.equity_curve]
+
+    return {
+        "symbol": symbol,
+        "strategy": strategy.name,
+        "start": _to_iso(start),
+        "end": _to_iso(end),
+        "initial_cash": round(cash, 2),
+        "final_value": round(final_value, 2),
+        "return_pct": round((final_value / cash - 1) * 100, 2) if cash else 0.0,
+        "num_trades": len(result.markers),
+        "max_drawdown_pct": _max_drawdown_pct(equities),
+        "series": [
+            {"date": d, "close": c, "equity": e} for d, c, e in result.equity_curve
+        ],
+        "markers": [{"date": d, "side": s, "price": p} for d, s, p in result.markers],
+    }
+
+
+def main() -> None:
+    import argparse
+    import json
+
+    parser = argparse.ArgumentParser(
+        description="Backtest a SimpleTrader strategy on historical data."
+    )
+    parser.add_argument("--symbol", required=True, help="Ticker symbol, e.g. VOO")
+    parser.add_argument("--start", required=True, help="Start date YYYY-MM-DD")
+    parser.add_argument("--end", required=True, help="End date YYYY-MM-DD")
+    parser.add_argument(
+        "--strategy",
+        default="sma_crossover",
+        choices=list(STRATEGIES),
+        help="Strategy to backtest",
+    )
+    parser.add_argument("--cash", type=float, default=10_000.0, help="Starting cash")
+    args = parser.parse_args()
+
+    result = run_backtest(
+        get_strategy(args.strategy), args.symbol, args.start, args.end, cash=args.cash
+    )
+    summary = {k: v for k, v in result.items() if k not in ("series", "markers")}
+    print(json.dumps(summary, indent=2))
+
+
+if __name__ == "__main__":
+    main()
