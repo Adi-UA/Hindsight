@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
-from backtest import _feed_from_df, run_backtest
+from backtest import _feed_from_df, _load_yf_feed, run_backtest
 from strategy import BuyAndHold, SmaCrossover
 
 
@@ -45,3 +46,11 @@ def test_sma_backtest_runs_and_reports_metadata():
     assert result["symbol"] == "TEST"
     assert len(result["series"]) > 50
     assert isinstance(result["return_pct"], float)
+
+
+def test_load_yf_feed_raises_when_no_data(monkeypatch):
+    # Yahoo occasionally returns an empty frame (rate limit, delisting, or a
+    # broken yfinance version). We should surface a clear error, not crash.
+    monkeypatch.setattr("backtest.yf.download", lambda *a, **k: pd.DataFrame())
+    with pytest.raises(ValueError):
+        _load_yf_feed("VOO", "2020-01-01", "2020-02-01")
