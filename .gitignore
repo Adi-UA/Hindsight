@@ -7,6 +7,9 @@ __pycache__/
 *.code-workspace
 config.py
 
+# Built frontend served by the backend
+backend/static/
+
 # Logs
 **/*.csv
 

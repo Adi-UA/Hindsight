@@ -3,6 +3,12 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    // Build straight into where the backend serves static files, so a single
+    // `npm run build` makes the API serve the dashboard at /.
+    outDir: "../backend/static",
+    emptyOutDir: true,
+  },
   server: {
     port: 5173,
     proxy: {
