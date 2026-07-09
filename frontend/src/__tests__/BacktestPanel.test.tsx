@@ -10,12 +10,12 @@ const strategies = [
 ];
 
 describe("BacktestPanel", () => {
-  test("runs the backtest with the selected strategies on submit", () => {
+  test("runs the backtest with the strategy and symbols on submit", () => {
     const onRun = vi.fn();
     renderWithChakra(<BacktestPanel strategies={strategies} onRun={onRun} />);
     fireEvent.click(screen.getByRole("button", { name: /run backtest/i }));
     expect(onRun).toHaveBeenCalledWith(
-      expect.objectContaining({ strategies: ["sma_crossover"], symbol: "VOO", cash: 10000 }),
+      expect.objectContaining({ strategy: "sma_crossover", symbols: ["VOO"] }),
     );
   });
 

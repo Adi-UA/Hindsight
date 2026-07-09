@@ -9,23 +9,21 @@ import {
   YAxis,
 } from "recharts";
 
-import type { StrategyResult } from "../api";
+import type { SymbolResult } from "../api";
 
-// Distinct colors for up to three strategy equity lines.
+// Distinct colors for up to three symbol equity lines.
 const COLORS = ["#3b82f6", "#f59e0b", "#a855f7"];
 
-export function ComparisonChart({ results }: { results: StrategyResult[] }) {
+export function ComparisonChart({ results }: { results: SymbolResult[] }) {
   if (results.length === 0) return null;
 
-  // All strategies ran over the same data, so their series share dates.
+  // Same strategy, same date range, so equity curves share dates and all start
+  // at the same cash, which makes them directly comparable.
   const base = results[0].series;
   const data = base.map((point, i) => {
-    const row: Record<string, number | string> = {
-      date: point.date,
-      close: point.close,
-    };
+    const row: Record<string, number | string> = { date: point.date };
     results.forEach((r) => {
-      row[r.strategy] = r.series[i]?.equity ?? Number.NaN;
+      row[r.symbol] = r.series[i]?.equity ?? Number.NaN;
     });
     return row;
   });
@@ -36,35 +34,18 @@ export function ComparisonChart({ results }: { results: StrategyResult[] }) {
         <CartesianGrid strokeDasharray="3 3" stroke="#2d3748" />
         <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#a0aec0" }} minTickGap={40} />
         <YAxis
-          yAxisId="equity"
           width={72}
           tick={{ fontSize: 11, fill: "#a0aec0" }}
           tickFormatter={(v: number) => `$${Math.round(v / 1000)}k`}
         />
-        <YAxis
-          yAxisId="price"
-          orientation="right"
-          width={60}
-          tick={{ fontSize: 11, fill: "#a0aec0" }}
-        />
         <Tooltip contentStyle={{ background: "#1a202c", border: "1px solid #2d3748" }} />
         <Legend />
-        <Line
-          yAxisId="price"
-          type="monotone"
-          dataKey="close"
-          name="Price"
-          stroke="#718096"
-          strokeWidth={1}
-          dot={false}
-        />
         {results.map((r, i) => (
           <Line
-            key={r.strategy}
-            yAxisId="equity"
+            key={r.symbol}
             type="monotone"
-            dataKey={r.strategy}
-            name={r.strategy}
+            dataKey={r.symbol}
+            name={r.symbol}
             stroke={COLORS[i % COLORS.length]}
             strokeWidth={2}
             dot={false}

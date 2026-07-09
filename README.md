@@ -2,10 +2,10 @@
 
 [![CI](https://github.com/Adi-UA/SimpleTrader/actions/workflows/ci.yml/badge.svg)](https://github.com/Adi-UA/SimpleTrader/actions/workflows/ci.yml)
 
-A backtest visualizer: see what *would* have happened if you had traded a stock
-with classic strategies. Pick up to three strategies, a symbol and a date range,
-and compare how they would have performed against each other and against simply
-buying and holding. No account or API keys, it uses public Yahoo Finance data.
+A backtest visualizer: see what *would* have happened if you had traded with
+classic strategies. Pick a strategy and up to three symbols (say VOO vs QQQM)
+over a date range, and compare how they would have performed side by side. No
+account or API keys, it uses public Yahoo Finance data.
 
 > Educational only. Past performance does not predict future results, and this
 > is not financial advice.
@@ -21,11 +21,11 @@ buying and holding. No account or API keys, it uses public Yahoo Finance data.
 
 ## How it works
 
-The FastAPI backend fetches daily prices **once** per (symbol, range) and runs
-each selected strategy over the same data with backtrader, returning equity
-curves plus metrics (return, trades, max drawdown). The React frontend overlays
-the results on one chart. Downloaded data is cached in memory and Yahoo requests
-are rate limited, so the app stays light and kind to the data source.
+The FastAPI backend fetches daily prices for each symbol (cached) and runs the
+chosen strategy over each with backtrader, returning equity curves plus metrics
+(return, trades, max drawdown). The React frontend overlays the results on one
+chart. Downloaded data is cached in memory and Yahoo requests are rate limited,
+so the app stays light and kind to the data source.
 
 ```
 backend/    FastAPI API + backtest engine (strategy, backtest, price cache)
@@ -72,15 +72,15 @@ cd frontend && npm run dev            # proxies /api to the backend
 
 ```bash
 cd backend && source .venv/bin/activate
-python backtest.py --symbol VOO --strategies sma_crossover,rsi,buy_and_hold \
+python backtest.py --strategy rsi --symbols VOO,QQQM \
   --start 2020-01-01 --end 2024-01-01
 ```
 
 ## API
 
 - `GET /api/strategies` — available strategies and descriptions
-- `POST /api/backtest` — `{ strategies: string[1..3], symbol, start, end, cash }`
-  returns per-strategy metrics and equity/price series
+- `POST /api/backtest` — `{ strategy, symbols: string[1..3], start, end, cash }`
+  returns per-symbol metrics and equity/price series
 
 ## Testing
 

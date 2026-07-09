@@ -29,8 +29,8 @@ export default function App() {
       <Box textAlign="center" mb={8}>
         <Heading size="xl">SimpleTrader</Heading>
         <Text color="gray.400" mt={2} maxW="2xl" mx="auto">
-          See what would have happened. Backtest classic trading strategies on any
-          stock and compare them against simply buying and holding.
+          See what would have happened. Run a strategy across up to three symbols
+          over any period and compare how they would have performed.
         </Text>
         <Link href={REPO_URL} isExternal color="brand.500" fontSize="sm">
           GitHub

@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 from backtest import _feed_from_df, _load_yf_df, run_backtest, run_comparison
-from strategy import BuyAndHold, Rsi, SmaCrossover
+from strategy import BuyAndHold, SmaCrossover
 
 
 def _synthetic_df(prices) -> pd.DataFrame:
@@ -59,17 +59,14 @@ def test_sma_backtest_runs_and_reports_metadata():
     assert len(result["series"]) > 50
 
 
-def test_run_comparison_returns_one_result_per_strategy_on_shared_dates():
+def test_run_comparison_returns_one_result_per_symbol_on_shared_dates(monkeypatch):
     prices = list(np.linspace(200, 100, 60)) + list(np.linspace(100, 200, 60))
+    monkeypatch.setattr("backtest._load_yf_df", lambda symbol, start, end: _synthetic_df(prices))
     out = run_comparison(
-        [SmaCrossover(), Rsi(), BuyAndHold()],
-        "TEST",
-        "2021-01-01",
-        "2021-06-30",
-        cash=10_000,
-        df=_synthetic_df(prices),
+        SmaCrossover(), ["VOO", "QQQM"], "2021-01-01", "2021-06-30", cash=10_000
     )
-    assert [r["strategy"] for r in out["results"]] == ["sma_crossover", "rsi", "buy_and_hold"]
+    assert out["strategy"] == "sma_crossover"
+    assert [r["symbol"] for r in out["results"]] == ["VOO", "QQQM"]
     dates0 = [p["date"] for p in out["results"][0]["series"]]
     for r in out["results"][1:]:
         assert [p["date"] for p in r["series"]] == dates0

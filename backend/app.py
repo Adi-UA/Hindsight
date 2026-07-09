@@ -43,15 +43,15 @@ def strategies() -> list[dict[str, str]]:
 @app.post("/api/backtest", response_model=BacktestResponse)
 def backtest(req: BacktestRequest) -> dict:
     try:
-        strategies = [get_strategy(name) for name in req.strategies]
+        strategy = get_strategy(req.strategy)
         return run_comparison(
-            strategies,
-            req.symbol,
+            strategy,
+            req.symbols,
             req.start.isoformat(),
             req.end.isoformat(),
             cash=req.cash,
         )
-    except ValueError as exc:  # unknown strategy or no data for the range
+    except ValueError as exc:  # unknown strategy or no data for a symbol
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RateLimitError as exc:  # too many live Yahoo fetches
         raise HTTPException(status_code=429, detail=str(exc)) from exc

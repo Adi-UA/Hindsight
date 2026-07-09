@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 _CANNED = {
-    "symbol": "VOO",
+    "strategy": "sma_crossover",
     "start": "2020-01-01",
     "end": "2020-06-01",
     "initial_cash": 10_000.0,
     "results": [
         {
+            "symbol": "VOO",
             "strategy": "sma_crossover",
             "final_value": 11_000.0,
             "return_pct": 10.0,
@@ -35,23 +36,23 @@ def test_backtest_happy_path(client, monkeypatch):
     resp = client.post(
         "/api/backtest",
         json={
-            "strategies": ["sma_crossover"],
-            "symbol": "VOO",
+            "strategy": "sma_crossover",
+            "symbols": ["VOO"],
             "start": "2020-01-01",
             "end": "2020-06-01",
             "cash": 10_000,
         },
     )
     assert resp.status_code == 200
-    assert resp.json()["results"][0]["final_value"] == 11_000.0
+    assert resp.json()["results"][0]["symbol"] == "VOO"
 
 
 def test_backtest_unknown_strategy_is_400(client):
     resp = client.post(
         "/api/backtest",
         json={
-            "strategies": ["nope"],
-            "symbol": "VOO",
+            "strategy": "nope",
+            "symbols": ["VOO"],
             "start": "2020-01-01",
             "end": "2020-06-01",
         },
@@ -59,12 +60,12 @@ def test_backtest_unknown_strategy_is_400(client):
     assert resp.status_code == 400
 
 
-def test_backtest_too_many_strategies_is_422(client):
+def test_backtest_too_many_symbols_is_422(client):
     resp = client.post(
         "/api/backtest",
         json={
-            "strategies": ["sma_crossover", "rsi", "macd", "buy_and_hold"],
-            "symbol": "VOO",
+            "strategy": "sma_crossover",
+            "symbols": ["VOO", "QQQM", "SPY", "DIA"],
             "start": "2020-01-01",
             "end": "2020-06-01",
         },
@@ -82,8 +83,8 @@ def test_backtest_rate_limited_is_429(client, monkeypatch):
     resp = client.post(
         "/api/backtest",
         json={
-            "strategies": ["sma_crossover"],
-            "symbol": "VOO",
+            "strategy": "sma_crossover",
+            "symbols": ["VOO"],
             "start": "2020-01-01",
             "end": "2020-06-01",
         },

@@ -22,7 +22,10 @@ import { useState } from "react";
 
 import type { BacktestRequest, ComparisonResult, StrategyInfo } from "../api";
 import { ComparisonChart } from "./ComparisonChart";
-import { StrategySelect } from "./StrategySelect";
+import { StrategyPicker } from "./StrategyPicker";
+import { SymbolsInput } from "./SymbolsInput";
+
+const today = () => new Date().toISOString().slice(0, 10);
 
 interface Props {
   strategies: StrategyInfo[];
@@ -33,10 +36,10 @@ interface Props {
 }
 
 export function BacktestPanel({ strategies, onRun, result, isRunning, error }: Props) {
-  const [selected, setSelected] = useState<string[]>(["sma_crossover"]);
-  const [symbol, setSymbol] = useState("VOO");
+  const [strategy, setStrategy] = useState("sma_crossover");
+  const [symbols, setSymbols] = useState<string[]>(["VOO"]);
   const [start, setStart] = useState("2020-01-01");
-  const [end, setEnd] = useState("2024-01-01");
+  const [end, setEnd] = useState(today());
   const [cash, setCash] = useState(10000);
 
   return (
@@ -48,33 +51,13 @@ export function BacktestPanel({ strategies, onRun, result, isRunning, error }: P
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            onRun({ strategies: selected, symbol, start, end, cash });
+            onRun({ strategy, symbols, start, end, cash });
           }}
         >
           <VStack align="stretch" spacing={4}>
-            <StrategySelect strategies={strategies} value={selected} onChange={setSelected} />
-            <SimpleGrid columns={2} spacing={3}>
-              <FormControl>
-                <FormLabel fontSize="sm" color="gray.400">
-                  Symbol
-                </FormLabel>
-                <Input
-                  value={symbol}
-                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                  bg="gray.900"
-                />
-              </FormControl>
-              <FormControl>
-                <FormLabel fontSize="sm" color="gray.400">
-                  Starting cash
-                </FormLabel>
-                <Input
-                  type="number"
-                  value={cash}
-                  onChange={(e) => setCash(Number(e.target.value))}
-                  bg="gray.900"
-                />
-              </FormControl>
+            <StrategyPicker strategies={strategies} value={strategy} onChange={setStrategy} />
+            <SymbolsInput value={symbols} onChange={setSymbols} />
+            <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={3}>
               <FormControl>
                 <FormLabel fontSize="sm" color="gray.400">
                   Start
@@ -97,6 +80,17 @@ export function BacktestPanel({ strategies, onRun, result, isRunning, error }: P
                   bg="gray.900"
                 />
               </FormControl>
+              <FormControl>
+                <FormLabel fontSize="sm" color="gray.400">
+                  Starting cash
+                </FormLabel>
+                <Input
+                  type="number"
+                  value={cash}
+                  onChange={(e) => setCash(Number(e.target.value))}
+                  bg="gray.900"
+                />
+              </FormControl>
             </SimpleGrid>
             <Button
               type="submit"
@@ -105,7 +99,7 @@ export function BacktestPanel({ strategies, onRun, result, isRunning, error }: P
               w="full"
               isLoading={isRunning}
               loadingText="Running"
-              isDisabled={selected.length === 0}
+              isDisabled={symbols.length === 0}
             >
               Run backtest
             </Button>
@@ -117,11 +111,14 @@ export function BacktestPanel({ strategies, onRun, result, isRunning, error }: P
 
             {result && (
               <>
+                <Text fontSize="sm" color="gray.400">
+                  {result.strategy} · starting cash ${result.initial_cash.toLocaleString()}
+                </Text>
                 <TableContainer>
                   <Table size="sm" variant="simple">
                     <Thead>
                       <Tr>
-                        <Th>Strategy</Th>
+                        <Th>Symbol</Th>
                         <Th isNumeric>Final value</Th>
                         <Th isNumeric>Return</Th>
                         <Th isNumeric>Trades</Th>
@@ -130,8 +127,8 @@ export function BacktestPanel({ strategies, onRun, result, isRunning, error }: P
                     </Thead>
                     <Tbody>
                       {result.results.map((r) => (
-                        <Tr key={r.strategy}>
-                          <Td>{r.strategy}</Td>
+                        <Tr key={r.symbol}>
+                          <Td>{r.symbol}</Td>
                           <Td isNumeric>${r.final_value.toLocaleString()}</Td>
                           <Td isNumeric color={r.return_pct >= 0 ? "green.300" : "red.300"}>
                             {r.return_pct}%

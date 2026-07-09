@@ -17,7 +17,8 @@ export interface Marker {
   price: number;
 }
 
-export interface StrategyResult {
+export interface SymbolResult {
+  symbol: string;
   strategy: string;
   final_value: number;
   return_pct: number;
@@ -28,16 +29,16 @@ export interface StrategyResult {
 }
 
 export interface ComparisonResult {
-  symbol: string;
+  strategy: string;
   start: string;
   end: string;
   initial_cash: number;
-  results: StrategyResult[];
+  results: SymbolResult[];
 }
 
 export interface BacktestRequest {
-  strategies: string[];
-  symbol: string;
+  strategy: string;
+  symbols: string[];
   start: string;
   end: string;
   cash: number;

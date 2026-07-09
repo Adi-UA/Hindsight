@@ -198,24 +198,29 @@ def run_backtest(
 
 
 def run_comparison(
-    strategies: list[Strategy],
-    symbol: str,
+    strategy: Strategy,
+    symbols: list[str],
     start: str | datetime,
     end: str | datetime,
     cash: float = 10_000.0,
     buy_fraction: float = 0.75,
     sell_fraction: float = 0.10,
     interval_days: int = 2,
-    df: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
-    """Run several strategies over the SAME data (fetched once) and compare them."""
-    frame = df if df is not None else _load_yf_df(symbol, str(start), str(end))
-    results = [
-        _run_one(s, _feed_from_df(frame.copy()), cash, buy_fraction, sell_fraction, interval_days)
-        for s in strategies
-    ]
+    """Run one strategy across several symbols and compare them.
+
+    Each symbol's data is fetched separately (and cached); the same strategy is
+    applied to each so their equity curves can be overlaid.
+    """
+    results = []
+    for symbol in symbols:
+        frame = _load_yf_df(symbol, str(start), str(end))
+        res = _run_one(
+            strategy, _feed_from_df(frame.copy()), cash, buy_fraction, sell_fraction, interval_days
+        )
+        results.append({"symbol": symbol, **res})
     return {
-        "symbol": symbol,
+        "strategy": strategy.name,
         "start": _to_iso(start),
         "end": _to_iso(end),
         "initial_cash": round(cash, 2),
@@ -228,24 +233,28 @@ def main() -> None:
     import json
 
     parser = argparse.ArgumentParser(
-        description="Backtest one or more SimpleTrader strategies on historical data."
+        description="Backtest a strategy across one or more symbols and compare them."
     )
-    parser.add_argument("--symbol", required=True, help="Ticker symbol, e.g. VOO")
+    parser.add_argument(
+        "--strategy",
+        default="sma_crossover",
+        choices=list(STRATEGIES),
+        help="Strategy to apply to every symbol",
+    )
+    parser.add_argument(
+        "--symbols", required=True, help="Comma-separated tickers (up to 3), e.g. VOO,QQQM"
+    )
     parser.add_argument("--start", required=True, help="Start date YYYY-MM-DD")
     parser.add_argument("--end", required=True, help="End date YYYY-MM-DD")
-    parser.add_argument(
-        "--strategies",
-        default="sma_crossover",
-        help=f"Comma-separated strategies from: {', '.join(STRATEGIES)}",
-    )
     parser.add_argument("--cash", type=float, default=10_000.0, help="Starting cash")
     args = parser.parse_args()
 
-    names = [n.strip() for n in args.strategies.split(",") if n.strip()]
-    strategies = [get_strategy(n) for n in names]
-    result = run_comparison(strategies, args.symbol, args.start, args.end, cash=args.cash)
+    symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()][:3]
+    result = run_comparison(
+        get_strategy(args.strategy), symbols, args.start, args.end, cash=args.cash
+    )
     summary = {
-        "symbol": result["symbol"],
+        "strategy": result["strategy"],
         "start": result["start"],
         "end": result["end"],
         "initial_cash": result["initial_cash"],

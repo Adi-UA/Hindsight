@@ -17,9 +17,9 @@ class StrategyInfo(BaseModel):
 
 
 class BacktestRequest(BaseModel):
-    # One to three strategies to run over the same data and compare.
-    strategies: list[str] = Field(min_length=1, max_length=3)
-    symbol: str = "VOO"
+    # One strategy applied to one to three symbols, compared over the same range.
+    strategy: str = "sma_crossover"
+    symbols: list[str] = Field(min_length=1, max_length=3)
     start: date
     end: date
     cash: float = Field(default=10_000.0, gt=0)
@@ -37,7 +37,8 @@ class Marker(BaseModel):
     price: float
 
 
-class StrategyResult(BaseModel):
+class SymbolResult(BaseModel):
+    symbol: str
     strategy: str
     final_value: float
     return_pct: float
@@ -48,8 +49,8 @@ class StrategyResult(BaseModel):
 
 
 class BacktestResponse(BaseModel):
-    symbol: str
+    strategy: str
     start: str
     end: str
     initial_cash: float
-    results: list[StrategyResult]
+    results: list[SymbolResult]
