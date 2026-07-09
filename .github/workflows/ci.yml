@@ -38,3 +38,19 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+
+  bundle-size:
+    # Ensure the Python serverless dependencies stay under Vercel's 250 MB
+    # unzipped function limit.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Measure serverless bundle size
+        run: |
+          python -m pip install -r requirements.txt --target /tmp/bundle --quiet
+          SIZE=$(du -sm /tmp/bundle | cut -f1)
+          echo "Python function bundle: ${SIZE} MB (Vercel limit: 250 MB)"
+          test "$SIZE" -lt 250

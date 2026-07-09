@@ -89,6 +89,19 @@ cd backend && source .venv/bin/activate && ruff check . && pytest
 cd frontend && npm test && npm run build
 ```
 
+## Deploy (Vercel)
+
+Hindsight deploys to Vercel as a static frontend plus a Python serverless
+function, no servers or secrets:
+
+- `vercel.json` builds the frontend into `backend/static` (served by Vercel's
+  CDN) and routes `/api/*` to the FastAPI function in `api/index.py`.
+- The root `requirements.txt` holds the function's dependencies (~160 MB
+  unzipped, under Vercel's 250 MB limit; CI checks this on every change).
+
+To deploy, import the repo on [vercel.com](https://vercel.com) or run `vercel`.
+No environment variables are required.
+
 ## License
 
 MIT, see [LICENSE](LICENSE).

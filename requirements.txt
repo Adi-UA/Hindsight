@@ -1,0 +1,6 @@
+backtrader==1.9.78.123
+numpy==2.2.1
+pandas==2.2.3
+yfinance>=1.5.1
+fastapi>=0.115
+pydantic>=2.9
