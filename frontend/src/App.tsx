@@ -27,7 +27,7 @@ export default function App() {
   return (
     <Container maxW="5xl" py={10}>
       <Box textAlign="center" mb={8}>
-        <Heading size="xl">SimpleTrader</Heading>
+        <Heading size="xl">Hindsight</Heading>
         <Text color="gray.400" mt={2} maxW="2xl" mx="auto">
           See what would have happened. Run a strategy across up to three symbols
           over any period and compare how they would have performed.

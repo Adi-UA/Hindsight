@@ -1,4 +1,4 @@
-"""Trading strategies for SimpleTrader.
+"""Trading strategies for Hindsight.
 
 Each strategy is a pure function of a sequence of closing prices: given the
 recent closes (oldest first), :meth:`Strategy.decide` returns a :class:`Signal`

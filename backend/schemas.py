@@ -1,4 +1,4 @@
-"""Pydantic request/response models for the SimpleTrader API."""
+"""Pydantic request/response models for the Hindsight API."""
 
 from __future__ import annotations
 

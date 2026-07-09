@@ -1,4 +1,4 @@
-// Typed client for the SimpleTrader backtest API.
+// Typed client for the Hindsight backtest API.
 
 export interface StrategyInfo {
   name: string;

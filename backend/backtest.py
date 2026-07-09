@@ -26,7 +26,7 @@ _FULL_INVEST_FRACTION = 0.99
 
 
 class _StrategyBridge(bt.Strategy):
-    """Adapts a SimpleTrader :class:`Strategy` to a backtrader strategy."""
+    """Adapts a Hindsight :class:`Strategy` to a backtrader strategy."""
 
     params = dict(  # noqa: RUF012 - backtrader reads params from a dict/tuple
         strategy_obj=None,

@@ -1,6 +1,6 @@
-# SimpleTrader
+# Hindsight
 
-[![CI](https://github.com/Adi-UA/SimpleTrader/actions/workflows/ci.yml/badge.svg)](https://github.com/Adi-UA/SimpleTrader/actions/workflows/ci.yml)
+[![CI](https://github.com/Adi-UA/Hindsight/actions/workflows/ci.yml/badge.svg)](https://github.com/Adi-UA/Hindsight/actions/workflows/ci.yml)
 
 A backtest visualizer: see what *would* have happened if you had traded with
 classic strategies. Pick a strategy and up to three symbols (say VOO vs QQQM)

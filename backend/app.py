@@ -1,4 +1,4 @@
-"""FastAPI backend for the SimpleTrader backtest visualizer.
+"""FastAPI backend for the Hindsight backtest visualizer.
 
 A small, stateless API: list the available strategies and run a backtest over
 historical data. There is no live trading, no account, and no secrets, which is
@@ -19,7 +19,7 @@ from pricecache import RateLimitError
 from schemas import BacktestRequest, BacktestResponse, HealthResponse, StrategyInfo
 from strategy import available_strategies, get_strategy
 
-app = FastAPI(title="SimpleTrader", version="2.0.0")
+app = FastAPI(title="Hindsight", version="2.0.0")
 
 # Allow the Vite dev server to call the API during local development.
 app.add_middleware(
