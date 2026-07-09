@@ -14,6 +14,14 @@ import type { SymbolResult } from "../api";
 // Distinct colors for up to three symbol equity lines.
 const COLORS = ["#3b82f6", "#f59e0b", "#a855f7"];
 
+// Compact currency for axis ticks, e.g. $1.5K, $2.5K, $1M (no duplicate labels).
+const AXIS_FMT = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
 export function ComparisonChart({ results }: { results: SymbolResult[] }) {
   if (results.length === 0) return null;
 
@@ -36,7 +44,7 @@ export function ComparisonChart({ results }: { results: SymbolResult[] }) {
         <YAxis
           width={72}
           tick={{ fontSize: 11, fill: "#a0aec0" }}
-          tickFormatter={(v: number) => `$${Math.round(v / 1000)}k`}
+          tickFormatter={(v: number) => AXIS_FMT.format(v)}
         />
         <Tooltip contentStyle={{ background: "#1a202c", border: "1px solid #2d3748" }} />
         <Legend />
