@@ -107,7 +107,9 @@ export function BacktestPanel({
           </SimpleGrid>
           <Button
             type="submit"
-            colorScheme="brand"
+            colorScheme="blue"
+            size="lg"
+            w="full"
             isLoading={isRunning}
             loadingText="Running"
           >
